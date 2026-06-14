@@ -1,0 +1,91 @@
+import pandas as pd
+import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+
+print("Loading dataset...")
+true_df = pd.read_csv("True.csv")
+fake_df = pd.read_csv("Fake.csv")
+true_df["label"] = 1
+fake_df["label"] = 0
+df = pd.concat([true_df, fake_df], ignore_index=True)
+print(f"  Real news samples : {len(true_df)}")
+print(f"  Fake news samples : {len(fake_df)}")
+print(f"  Total samples     : {len(df)}")
+
+# Combine title + text
+df["content"] = df["title"].fillna("") + " " + df["text"].fillna("")
+df = df[["content", "label"]].dropna()
+df = df[df["content"].str.strip() != ""]
+print(f"\nSamples after cleaning: {len(df)}")
+
+X = df["content"]
+y = df["label"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+print(f"\nTraining set : {len(X_train)} samples")
+print(f"Test set     : {len(X_test)} samples")
+
+# Naive Bayes pipeline
+pipeline = Pipeline([
+    ("tfidf", TfidfVectorizer(
+        max_features=100_000,
+        ngram_range=(1, 2),
+        sublinear_tf=True,
+        min_df=2,
+        max_df=0.95,
+        stop_words="english"
+    )),
+    ("clf", MultinomialNB(alpha=0.1))
+])
+
+print("\nTraining Naive Bayes model...")
+pipeline.fit(X_train, y_train)
+y_pred = pipeline.predict(X_test)
+
+acc = accuracy_score(y_test, y_pred)
+print(f"\n{'='*50}")
+print(f"  Test Accuracy : {acc*100:.2f}%")
+print(f"{'='*50}")
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=["Fake", "Real"]))
+
+# ── Confusion Matrix ──────────────────────────────────
+cm = confusion_matrix(y_test, y_pred)
+
+print("Confusion Matrix:")
+print(f"                 Predicted Fake  Predicted Real")
+print(f"  Actual Fake       {cm[0][0]:>6}          {cm[0][1]:>6}")
+print(f"  Actual Real       {cm[1][0]:>6}          {cm[1][1]:>6}")
+
+# Plot heatmap
+plt.figure(figsize=(6, 5))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    cmap="Blues",
+    xticklabels=["Fake", "Real"],
+    yticklabels=["Fake", "Real"],
+    linewidths=0.5
+)
+plt.title("Confusion Matrix — Naive Bayes", fontsize=14, fontweight="bold")
+plt.xlabel("Predicted Label", fontsize=12)
+plt.ylabel("Actual Label", fontsize=12)
+plt.tight_layout()
+plt.savefig("confusion_matrix.png", dpi=150)
+plt.show()
+print("\nConfusion matrix saved → confusion_matrix.png")
+# ─────────────────────────────────────────────────────
+
+with open("model.pkl", "wb") as f:
+    pickle.dump(pipeline, f)
+print("\nNaive Bayes model saved to → model.pkl")
+print("Run 'streamlit run app.py' to launch the web app.")
