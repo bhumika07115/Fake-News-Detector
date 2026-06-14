@@ -1,0 +1,402 @@
+import streamlit as st
+import pickle
+import plotly.graph_objects as go
+from datetime import datetime
+
+st.set_page_config(
+    page_title="The Truth Press",
+    page_icon="🗞️",
+    layout="centered"
+)
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&family=IM+Fell+English:ital@0;1&display=swap');
+
+html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > section,
+[data-testid="stVerticalBlock"],
+[data-testid="block-container"],
+.main, .block-container,
+[class*="css"] {
+    background-color: #f5f0e8 !important;
+    color: #1a1a1a !important;
+    font-family: 'IM Fell English', serif;
+}
+
+[data-testid="stHeader"],
+[data-testid="stToolbar"] {
+    background-color: #f5f0e8 !important;
+}
+
+#MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 1rem !important; max-width: 780px !important; }
+
+.masthead {
+    border-top: 4px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    text-align: center;
+    padding: 0.4rem 0 0.5rem;
+    background: #f5f0e8;
+}
+.masthead-date {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 4px;
+}
+.masthead-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 4rem;
+    font-weight: 900;
+    color: #1a1a1a;
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -1px;
+}
+.masthead-sub {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: #555;
+    margin: 4px 0 6px;
+}
+.masthead-rule {
+    border: none;
+    border-top: 3px double #1a1a1a;
+    margin: 6px 0 0;
+}
+.masthead-tagline {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #777;
+    padding: 5px 0 2px;
+    border-bottom: 1px solid #1a1a1a;
+    background: #f5f0e8;
+}
+
+.section-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8b2020;
+    font-weight: 600;
+    margin: 1.4rem 0 0.3rem;
+}
+.article-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.2;
+    margin-bottom: 0.3rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5rem;
+    background: #f5f0e8;
+}
+.article-deck {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 1rem;
+}
+
+.verdict-real {
+    background: #1e5c2e;
+    border-radius: 4px;
+    padding: 1.4rem 1.8rem;
+    margin: 1rem 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.verdict-fake {
+    background: #8b2020;
+    border-radius: 4px;
+    padding: 1.4rem 1.8rem;
+    margin: 1rem 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.verdict-icon { font-size: 2rem; }
+.verdict-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 2px;
+}
+.verdict-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+}
+.verdict-conf {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+}
+.verdict-model {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.45);
+    margin-top: 4px;
+}
+
+.tip-box {
+    background: #ede8dc;
+    border-left: 3px solid #b8a97a;
+    padding: 0.7rem 1rem;
+    font-size: 13px;
+    color: #665;
+    font-family: 'DM Sans', sans-serif;
+    margin-top: 0.5rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.how-grid {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.8rem;
+}
+.how-card {
+    flex: 1;
+    background: #ede8dc;
+    border: 1px solid #d4ccbb;
+    border-radius: 6px;
+    padding: 1.1rem;
+    text-align: center;
+}
+.how-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #c8b89a;
+    line-height: 1;
+}
+.how-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: #777;
+    margin-top: 6px;
+    line-height: 1.5;
+}
+
+.model-badge {
+    display: inline-block;
+    background: #ede8dc;
+    border: 1px solid #c8b89a;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: #7a6a4a;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+}
+
+textarea {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    font-family: 'IM Fell English', serif !important;
+    font-size: 15px !important;
+    color: #1a1a1a !important;
+}
+textarea::placeholder { color: #aaa !important; }
+textarea:focus { border-color: #8b2020 !important; box-shadow: none !important; }
+
+div[data-testid="stButton"] button {
+    background: #8b2020 !important;
+    color: #fff !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 0.65rem 2rem !important;
+    width: 100% !important;
+}
+div[data-testid="stButton"] button:hover { background: #6b1818 !important; }
+div[data-testid="stButton"] button:disabled { background: #ccc !important; color: #999 !important; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Load model ───────────────────────────────────────────────────────────────
+@st.cache_resource
+def load_model():
+    with open("model.pkl", "rb") as f:
+        return pickle.load(f)
+
+try:
+    pipeline = load_model()
+    model_loaded = True
+except FileNotFoundError:
+    model_loaded = False
+
+# ── Masthead ─────────────────────────────────────────────────────────────────
+today = datetime.now().strftime("%A, %B %d, %Y").upper()
+st.markdown(f"""
+<div class="masthead">
+    <div class="masthead-date">{today}</div>
+    <div class="masthead-title">The Truth Press</div>
+    <div class="masthead-sub">Automated Fact-Verification · AI for Society Edition</div>
+    <hr class="masthead-rule"/>
+    <div class="masthead-tagline">
+        <span>Vol. I · No. 1</span>
+        <span>+ + +</span>
+        <span>AI for Society Course</span>
+        <span>+ + +</span>
+        <span>Powered by Naive Bayes · ISOT Dataset</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if not model_loaded:
+    st.error("⚠️ model.pkl not found. Run `python train_nb.py` first.")
+    st.stop()
+
+# ── Input ─────────────────────────────────────────────────────────────────────
+st.markdown('<div class="section-label">Submit Article for Verification</div>', unsafe_allow_html=True)
+st.markdown('<div class="article-headline">Is this news real — or fabricated?</div>', unsafe_allow_html=True)
+st.markdown('<div class="article-deck">Paste any news headline or article below. Our Naive Bayes model will render its verdict.</div>', unsafe_allow_html=True)
+st.markdown('<span class="model-badge">Model: Multinomial Naive Bayes</span>', unsafe_allow_html=True)
+
+user_input = st.text_area(
+    "",
+    placeholder="Paste a news headline or full article text here...",
+    height=160,
+    label_visibility="collapsed"
+)
+
+analyze = st.button("✒  Submit for Verification", disabled=not user_input.strip())
+
+# ── Prediction ────────────────────────────────────────────────────────────────
+if analyze and user_input.strip():
+    with st.spinner("Consulting the archive..."):
+        text = user_input.strip()
+        word_count = len(text.split())
+        boosted = (text + " ") * 6 if word_count < 30 else text
+
+        probs     = pipeline.predict_proba([boosted])[0]
+        fake_prob = float(probs[0])
+        real_prob = float(probs[1])
+        verdict   = "Real" if real_prob >= 0.5 else "Fake"
+        confidence = real_prob if verdict == "Real" else fake_prob
+        real_pct  = round(real_prob * 100)
+        fake_pct  = round(fake_prob * 100)
+
+        if confidence > 0.90:
+            certainty = "The archive is highly certain of this verdict."
+        elif confidence > 0.75:
+            certainty = "The archive is fairly confident in this verdict."
+        elif confidence > 0.60:
+            certainty = "Moderate confidence — corroborate with other sources."
+        else:
+            certainty = "Low confidence — verdict may not be reliable."
+
+    st.markdown("---")
+
+    if verdict == "Real":
+        st.markdown(f"""
+        <div class="verdict-real">
+            <div class="verdict-icon">✓</div>
+            <div>
+                <div class="verdict-text">Verified</div>
+                <div class="verdict-value">Real News</div>
+                <div class="verdict-conf">{certainty}</div>
+                <div class="verdict-model">Classified by Multinomial Naive Bayes</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="verdict-fake">
+            <div class="verdict-icon">✗</div>
+            <div>
+                <div class="verdict-text">Alert</div>
+                <div class="verdict-value">Fake News</div>
+                <div class="verdict-conf">{certainty}</div>
+                <div class="verdict-model">Classified by Multinomial Naive Bayes</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    # Bar chart
+    fig = go.Figure(data=[
+        go.Bar(
+            x=["Real", "Fake"],
+            y=[real_pct, fake_pct],
+            marker_color=["#1e5c2e", "#8b2020"],
+            width=0.36,
+            text=[f"{real_pct}%", f"{fake_pct}%"],
+            textposition="outside",
+            textfont=dict(size=15, color=["#1e5c2e", "#8b2020"],
+                          family="Playfair Display")
+        )
+    ])
+
+    fig.update_layout(
+        paper_bgcolor="#f5f0e8",
+        plot_bgcolor="#f5f0e8",
+        margin=dict(t=20, b=10, l=10, r=10),
+        height=260,
+        font=dict(family="DM Sans", color="#1a1a1a"),
+        xaxis=dict(
+            tickfont=dict(size=14, color="#1a1a1a"),
+            showgrid=False,
+            showline=True,
+            linecolor="#ccc"
+        ),
+        yaxis=dict(
+            ticksuffix="%",
+            range=[0, 118],
+            gridcolor="#e0d8cc",
+            tickfont=dict(size=11, color="#999"),
+            showline=False
+        ),
+        showlegend=False
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    if word_count < 30:
+        st.markdown("""
+        <div class="tip-box">
+            📰 <b>Editor's note:</b> Only a headline was provided.
+            For a more reliable verdict, paste the full article body.
+        </div>""", unsafe_allow_html=True)
+
+else:
+    st.markdown("""
+    <div class="how-grid">
+        <div class="how-card">
+            <div class="how-num">I</div>
+            <div class="how-text">Paste any news headline or full article text</div>
+        </div>
+        <div class="how-card">
+            <div class="how-num">II</div>
+            <div class="how-text">Naive Bayes model analyzes word probabilities</div>
+        </div>
+        <div class="how-card">
+            <div class="how-num">III</div>
+            <div class="how-text">Receive a Real or Fake verdict instantly</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
